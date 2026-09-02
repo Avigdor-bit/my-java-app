@@ -1,114 +1,194 @@
-I'll help you create a complete "My Java App Server" configuration step by step using Bash. This will include setting up Docker, Java, and a web application server.
+# Docker Java Web Server
 
-## Complete Bash Script for "My Java App Server"
+A lightweight Java web server running inside Docker, built with `com.sun.net.httpserver`. This application provides a simple web interface with statistics, health checks, and version information — perfect for learning Docker + Java or testing container deployments.
 
-### Step 1: Create the Main Setup Script
+---
 
-```bash
-#!/bin/bash
+## 🚀 Features
 
-# My Java App Server - Complete Setup Script
-# Version: 2.0.0
+- **Simple HTTP server** using Java's built-in `HttpServer`
+- **Multiple endpoints**: home page, stats, health, version
+- **Request counter** (atomic, thread-safe)
+- **Uptime tracking** with human-readable formatting
+- **Container-aware** – displays container ID from hostname
+- **Thread-pooled** for handling concurrent requests
+- **Graceful shutdown** via JVM shutdown hook
+- **Clean HTML/CSS** styled pages
 
-set -e  # Exit on error
+---
 
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+## 📦 Endpoints
 
-# Configuration Variables
-APP_NAME="my-java-app"
-APP_VERSION="2.0.0"
-DOCKER_IMAGE="${APP_NAME}:${APP_VERSION}"
-CONTAINER_NAME="${APP_NAME}-container"
-HOST_PORT=8080
-CONTAINER_PORT=8080
+| Endpoint     | Description                                  |
+|--------------|----------------------------------------------|
+| `/`          | Home page with app info, uptime, request count |
+| `/stats`     | Detailed server statistics                   |
+| `/health`    | Simple health check – returns `OK`           |
+| `/version`   | JSON response with app name, version, Java version |
 
-echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}  My Java App Server Setup v${APP_VERSION}${NC}"
-echo -e "${BLUE}========================================${NC}"
+---
 
-# Step 2: Check Prerequisites
-echo -e "\n${YELLOW}[Step 1] Checking prerequisites...${NC}"
+## 🐳 Docker Quick Start
 
-check_prerequisite() {
-    if ! command -v $1 &> /dev/null; then
-        echo -e "${RED}✗ $1 is not installed${NC}"
-        echo -e "${YELLOW}Installing $1...${NC}"
-        return 1
-    else
-        echo -e "${GREEN}✓ $1 is installed${NC}"
-        return 0
-    fi
-}
+### Build the image
 
-# Check Docker
-if ! check_prerequisite docker; then
-    echo -e "${YELLOW}Installing Docker...${NC}"
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sudo sh get-docker.sh
-    sudo usermod -aG docker $USER
-    echo -e "${GREEN}✓ Docker installed successfully${NC}"
-fi
+Create a `Dockerfile` in the same directory as `Main.java`:
 
-# Check Java
-if ! check_prerequisite java; then
-    echo -e "${YELLOW}Installing Java 17...${NC}"
-    sudo apt-get update
-    sudo apt-get install -y openjdk-17-jdk
-    echo -e "${GREEN}✓ Java 17 installed successfully${NC}"
-fi
+```dockerfile
+FROM openjdk:17-slim
 
-# Check Maven
-if ! check_prerequisite mvn; then
-    echo -e "${YELLOW}Installing Maven...${NC}"
-    sudo apt-get install -y maven
-    echo -e "${GREEN}✓ Maven installed successfully${NC}"
-fi
-
-# Step 3: Create Project Structure
-echo -e "\n${YELLOW}[Step 2] Creating project structure...${NC}"
-
-PROJECT_DIR="${HOME}/${APP_NAME}"
-mkdir -p ${PROJECT_DIR}/{src/main/java/com/example,src/main/resources,src/test/java}
-
-cd ${PROJECT_DIR}
-
-# Step 4: Create Dockerfile
-echo -e "\n${YELLOW}[Step 3] Creating Dockerfile...${NC}"
-
-cat > Dockerfile << 'EOF'
-FROM openjdk:17-jdk-slim
-
-# Set working directory
 WORKDIR /app
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+COPY Main.java .
 
-# Copy Maven wrapper and pom.xml
-COPY pom.xml .
-COPY src ./src
+RUN javac Main.java
 
-# Build the application
-RUN apt-get update && apt-get install -y maven && \
-    mvn clean package -DskipTests && \
-    mv target/*.jar app.jar && \
-    apt-get remove -y maven && apt-get autoremove -y
-
-# Create application user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
-
-# Expose port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health || exit 1
+CMD ["java", "Main"]
+```
 
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+Then build and run:
+
+```bash
+docker build -t java-web-server .
+docker run -d -p 8080:8080 --name my-java-app java-web-server
+```
+
+### Or use the prebuilt image (if available)
+
+```bash
+docker pull yourusername/java-web-server:latest
+docker run -d -p 8080:8080 yourusername/java-web-server
+```
+
+---
+
+## 🔧 Local Development (without Docker)
+
+### Prerequisites
+
+- Java 8 or higher (tested with Java 17+)
+
+### Compile & Run
+
+```bash
+javac Main.java
+java Main
+```
+
+Then open `http://localhost:8080` in your browser.
+
+---
+
+## 🧪 Testing
+
+You can test endpoints using `curl`:
+
+```bash
+# Home page
+curl http://localhost:8080/
+
+# Health check
+curl http://localhost:8080/health
+
+# Stats page
+curl http://localhost:8080/stats
+
+# Version JSON
+curl http://localhost:8080/version
+```
+
+---
+
+## 📊 Sample Output
+
+**Home page (`/`)**:
+```
+✅ Docker Java App Running! [v2.0.0]
+⏰ Time: 2026-09-02T12:34:56Z
+🐳 Container: abc123def456
+☕ Java Version: 17.0.8
+📊 Requests: 42
+🆙 Uptime: 1h 23m 45s
+```
+
+**Version endpoint (`/version`)**:
+```json
+{
+  "app": "Docker Java App",
+  "version": "2.0.0",
+  "java": "17.0.8"
+}
+```
+
+---
+
+## 🛠️ Customization
+
+### Change version or app name
+
+Edit the constants at the top of `Main.java`:
+
+```java
+private static final String VERSION = "2.0.0";
+private static final String APP_NAME = "Docker Java App";
+```
+
+### Change port
+
+Modify the port in `HttpServer.create()`:
+
+```java
+HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+```
+
+---
+
+## 🏗️ Architecture
+
+- **Main.java**: Single-file application
+- **HttpServer**: Built-in Java HTTP server (no external dependencies)
+- **AtomicInteger**: Thread-safe request counter
+- **CachedThreadPool**: Handles concurrent connections efficiently
+- **Shutdown hook**: Ensures clean shutdown on container stop
+
+---
+
+## 📁 Project Structure
+
+```
+.
+├── Main.java          # Single source file – the entire app
+└── README.md          # This file
+```
+
+---
+
+## 📄 License
+
+This project is open-source and available under the MIT License.
+
+---
+
+## ✨ Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Submit a pull request
+
+---
+
+## 🐛 Issues
+
+If you encounter any issues, please open an issue on the GitHub repository with:
+- Docker version
+- Java version
+- Steps to reproduce
+- Full error output (if any)
+
+---
+
+**Happy coding! 🚀**
+
