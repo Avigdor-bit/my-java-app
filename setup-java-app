@@ -5,15 +5,20 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
     private static final String VERSION = "2.0.0";
     private static final String APP_NAME = "Docker Java App";
-    private static int requestCount = 0;
+    private static final AtomicInteger requestCount = new AtomicInteger(0);
     private static final long startTime = System.currentTimeMillis();
 
     public static void main(String[] args) throws IOException {
         HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+        
+        // Use a thread pool for better performance
+        server.setExecutor(Executors.newCachedThreadPool());
 
         server.createContext("/", exchange -> {
             String response = getHomePage();
@@ -37,7 +42,12 @@ public class Main {
             sendResponse(exchange, 200, response);
         });
 
-        server.setExecutor(null);
+        // Add shutdown hook for graceful shutdown
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            System.out.println("🛑 Shutting down server...");
+            server.stop(0);
+        }));
+
         server.start();
         System.out.println("🚀 Java Web Server started on port 8080");
         System.out.println("⏰ Time: " + Instant.now());
@@ -48,11 +58,13 @@ public class Main {
     }
 
     private static void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException {
-        requestCount++;
-        exchange.sendResponseHeaders(statusCode, response.getBytes("UTF-8").length);
-        OutputStream os = exchange.getResponseBody();
-        os.write(response.getBytes("UTF-8"));
-        os.close();
+        // Increment counter atomically
+        requestCount.incrementAndGet();
+        byte[] responseBytes = response.getBytes("UTF-8");
+        exchange.sendResponseHeaders(statusCode, responseBytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(responseBytes);
+        }
     }
 
     private static String getHomePage() {
@@ -80,7 +92,7 @@ public class Main {
                "            <p><strong>⏰ Time:</strong> " + Instant.now() + "</p>\n" +
                "            <p><strong>🐳 Container:</strong> " + getContainerId() + "</p>\n" +
                "            <p><strong>☕ Java Version:</strong> " + System.getProperty("java.version") + "</p>\n" +
-               "            <p><strong>📊 Requests:</strong> " + requestCount + "</p>\n" +
+               "            <p><strong>📊 Requests:</strong> " + requestCount.get() + "</p>\n" +
                "            <p><strong>🆙 Uptime:</strong> " + formatUptime(uptime) + "</p>\n" +
                "        </div>\n" +
                "        <p><span class=\"badge\">✓ Running in Docker</span></p>\n" +
@@ -116,7 +128,7 @@ public class Main {
                "    <div class=\"container\">\n" +
                "        <h1>📊 Server Statistics <span class=\"version-badge\">v" + VERSION + "</span></h1>\n" +
                "        <div class=\"stat\">\n" +
-               "            <p><strong>Total Requests:</strong> <span class=\"number\">" + requestCount + "</span></p>\n" +
+               "            <p><strong>Total Requests:</strong> <span class=\"number\">" + requestCount.get() + "</span></p>\n" +
                "            <p><strong>Uptime:</strong> " + formatUptime(uptime) + "</p>\n" +
                "            <p><strong>Start Time:</strong> " + Instant.ofEpochMilli(startTime) + "</p>\n" +
                "            <p><strong>Container ID:</strong> " + getContainerId() + "</p>\n" +
@@ -131,6 +143,10 @@ public class Main {
     private static String getContainerId() {
         try {
             String hostname = java.net.InetAddress.getLocalHost().getHostName();
+            // Truncate to first 12 characters for Docker container ID style
+            if (hostname.length() > 12) {
+                return hostname.substring(0, 12);
+            }
             return hostname;
         } catch (Exception e) {
             return "unknown";
@@ -141,8 +157,14 @@ public class Main {
         long seconds = millis / 1000;
         long minutes = seconds / 60;
         long hours = minutes / 60;
+        long days = hours / 24;
         seconds = seconds % 60;
         minutes = minutes % 60;
+        hours = hours % 24;
+        
+        if (days > 0) {
+            return days + "d " + hours + "h " + minutes + "m " + seconds + "s";
+        }
         return hours + "h " + minutes + "m " + seconds + "s";
     }
 }
