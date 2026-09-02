@@ -1,0 +1,148 @@
+# cat Main.java
+import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpExchange;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.time.Instant;
+
+public class Main {
+    private static final String VERSION = "2.0.0";
+    private static final String APP_NAME = "Docker Java App";
+    private static int requestCount = 0;
+    private static final long startTime = System.currentTimeMillis();
+
+    public static void main(String[] args) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+
+        server.createContext("/", exchange -> {
+            String response = getHomePage();
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+            sendResponse(exchange, 200, response);
+        });
+
+        server.createContext("/health", exchange -> {
+            sendResponse(exchange, 200, "OK");
+        });
+
+        server.createContext("/stats", exchange -> {
+            String response = getStatsPage();
+            exchange.getResponseHeaders().set("Content-Type", "text/html; charset=UTF-8");
+            sendResponse(exchange, 200, response);
+        });
+
+        server.createContext("/version", exchange -> {
+            String response = "{\"app\":\"" + APP_NAME + "\",\"version\":\"" + VERSION + "\",\"java\":\"" + System.getProperty("java.version") + "\"}";
+            exchange.getResponseHeaders().set("Content-Type", "application/json; charset=UTF-8");
+            sendResponse(exchange, 200, response);
+        });
+
+        server.setExecutor(null);
+        server.start();
+        System.out.println("🚀 Java Web Server started on port 8080");
+        System.out.println("⏰ Time: " + Instant.now());
+        System.out.println("🌐 Access: http://localhost:8080");
+        System.out.println("📊 Stats: http://localhost:8080/stats");
+        System.out.println("💚 Health: http://localhost:8080/health");
+        System.out.println("📦 Version: http://localhost:8080/version");
+    }
+
+    private static void sendResponse(HttpExchange exchange, int statusCode, String response) throws IOException {
+        requestCount++;
+        exchange.sendResponseHeaders(statusCode, response.getBytes("UTF-8").length);
+        OutputStream os = exchange.getResponseBody();
+        os.write(response.getBytes("UTF-8"));
+        os.close();
+    }
+
+    private static String getHomePage() {
+        long uptime = System.currentTimeMillis() - startTime;
+        return "<!DOCTYPE html>\n" +
+               "<html>\n" +
+               "<head>\n" +
+               "    <meta charset=\"UTF-8\">\n" +
+               "    <title>Docker Java App</title>\n" +
+               "    <style>\n" +
+               "        body { font-family: Arial, sans-serif; margin: 50px; background: #f0f0f0; }\n" +
+               "        .container { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }\n" +
+               "        h1 { color: #4CAF50; }\n" +
+               "        .info { background: #e8f5e9; padding: 15px; border-radius: 5px; margin: 10px 0; }\n" +
+               "        .badge { display: inline-block; background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; }\n" +
+               "        .version-badge { display: inline-block; background: #2196F3; color: white; padding: 5px 10px; border-radius: 3px; margin-left: 10px; }\n" +
+               "        a { color: #2196F3; text-decoration: none; }\n" +
+               "        a:hover { text-decoration: underline; }\n" +
+               "    </style>\n" +
+               "</head>\n" +
+               "<body>\n" +
+               "    <div class=\"container\">\n" +
+               "        <h1>✅ Docker Java App Running! <span class=\"version-badge\">v" + VERSION + "</span></h1>\n" +
+               "        <div class=\"info\">\n" +
+               "            <p><strong>⏰ Time:</strong> " + Instant.now() + "</p>\n" +
+               "            <p><strong>🐳 Container:</strong> " + getContainerId() + "</p>\n" +
+               "            <p><strong>☕ Java Version:</strong> " + System.getProperty("java.version") + "</p>\n" +
+               "            <p><strong>📊 Requests:</strong> " + requestCount + "</p>\n" +
+               "            <p><strong>🆙 Uptime:</strong> " + formatUptime(uptime) + "</p>\n" +
+               "        </div>\n" +
+               "        <p><span class=\"badge\">✓ Running in Docker</span></p>\n" +
+               "        <p>\n" +
+               "            <a href=\"/stats\">View Stats</a> | \n" +
+               "            <a href=\"/health\">Health Check</a> | \n" +
+               "            <a href=\"/version\">Version</a>\n" +
+               "        </p>\n" +
+               "    </div>\n" +
+               "</body>\n" +
+               "</html>";
+    }
+
+    private static String getStatsPage() {
+        long uptime = System.currentTimeMillis() - startTime;
+        return "<!DOCTYPE html>\n" +
+               "<html>\n" +
+               "<head>\n" +
+               "    <meta charset=\"UTF-8\">\n" +
+               "    <title>Server Stats</title>\n" +
+               "    <style>\n" +
+               "        body { font-family: Arial, sans-serif; margin: 50px; background: #f0f0f0; }\n" +
+               "        .container { background: white; padding: 30px; border-radius: 10px; max-width: 600px; margin: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }\n" +
+               "        h1 { color: #2196F3; }\n" +
+               "        .stat { background: #e3f2fd; padding: 10px; margin: 5px 0; border-radius: 5px; }\n" +
+               "        .number { font-size: 24px; font-weight: bold; color: #1976D2; }\n" +
+               "        .version-badge { display: inline-block; background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; }\n" +
+               "        a { color: #2196F3; text-decoration: none; }\n" +
+               "        a:hover { text-decoration: underline; }\n" +
+               "    </style>\n" +
+               "</head>\n" +
+               "<body>\n" +
+               "    <div class=\"container\">\n" +
+               "        <h1>📊 Server Statistics <span class=\"version-badge\">v" + VERSION + "</span></h1>\n" +
+               "        <div class=\"stat\">\n" +
+               "            <p><strong>Total Requests:</strong> <span class=\"number\">" + requestCount + "</span></p>\n" +
+               "            <p><strong>Uptime:</strong> " + formatUptime(uptime) + "</p>\n" +
+               "            <p><strong>Start Time:</strong> " + Instant.ofEpochMilli(startTime) + "</p>\n" +
+               "            <p><strong>Container ID:</strong> " + getContainerId() + "</p>\n" +
+               "            <p><strong>App Version:</strong> " + VERSION + "</p>\n" +
+               "        </div>\n" +
+               "        <p><a href=\"/\">← Back to Home</a></p>\n" +
+               "    </div>\n" +
+               "</body>\n" +
+               "</html>";
+    }
+
+    private static String getContainerId() {
+        try {
+            String hostname = java.net.InetAddress.getLocalHost().getHostName();
+            return hostname;
+        } catch (Exception e) {
+            return "unknown";
+        }
+    }
+
+    private static String formatUptime(long millis) {
+        long seconds = millis / 1000;
+        long minutes = seconds / 60;
+        long hours = minutes / 60;
+        seconds = seconds % 60;
+        minutes = minutes % 60;
+        return hours + "h " + minutes + "m " + seconds + "s";
+    }
+}

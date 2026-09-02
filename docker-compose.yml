@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  :
+    build: .
+    image: 
+    container_name: 
+    ports:
+      - ":"
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app-network
+    volumes:
+      - ./logs:/app/logs
+
+networks:
+  app-network:
+    driver: bridge
