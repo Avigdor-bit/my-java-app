@@ -1,5 +1,4 @@
-# Docker Java Web Server
-
+# Docker Java Web Server  on a {Linux Distro Ubuntu 26.04 LTS }
 A lightweight Java web server running inside Docker, built with `com.sun.net.httpserver`. This application provides a simple web interface with statistics, health checks, and version information — perfect for learning Docker + Java or testing container deployments.
 
 ---
